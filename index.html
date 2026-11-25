@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meteo e neve sulle mie stazioni</title>
+<meta name="description" content="Meteo, neve e valanghe sulle stazioni sciistiche preferite, aggiornato ogni mattina.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect x='28' y='24' width='64' height='82' rx='22' fill='%23E8742A'/%3E%3C/svg%3E">
+<style>
+html,body{margin:0;background:#0b111c}
+#dash-root{--cds-gap-sm:8px;--cds-gap-md:14px;--cds-gap-lg:20px;--font-anthropic-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;min-height:100vh}
+.dash-select{appearance:none;-webkit-appearance:none;font:inherit;padding:8px 38px 8px 14px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238696ae' stroke-width='1.6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;cursor:pointer}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="dash.js"></script>
+</head>
+<body>
+<div id="dash-root">
+<style>
+/* VOICE: bollettino da rifugio, asciutto e tecnico. IDEA: la plancia di una stazione meteo d'alta quota di notte. PICTURE: barre di neve luminose con il manto che cresce. COLOUR: blu-grafite notturno, ghiaccio luminoso per la neve, ambra per il caldo. TYPE: sans leggero, etichette maiuscole. LAYOUT: stazione, KPI, valanghe, poi barra a schede fissa e sezioni a scorrimento laterale. */
+#dash-root{--dash-gutter:0}
+.mx{--bg:#0b111c;--bg2:#0f1726;--card:#131c2c;--card2:#172234;--line:#22314a;--ink:#e9f0fa;--mute:#8696ae;--ice:#5fd4ff;--ice2:#a7ecff;--ok:#43e3a1;--bad:#ff6b7d;--warn:#ffc65c;
+  --color-fg:#e9f0fa;--color-fg-muted:#8696ae;--color-ok:#43e3a1;--color-bad:#ff6b7d;--color-warn:#ffc65c;--color-panel:#151e2e;--color-border-line:#22314a;--cds-text-secondary:#8696ae;--cds-surface-popover:#0f1726;--cds-border:#2b3d5c;
+  --cds-chart-status-critical:#ff6f8e;--cds-chart-muted:#4a5a74;--cds-chart-reference:#c9d6ea;--cds-chart-grid:rgba(134,150,174,.18);--cds-chart-axis:#22314a;
+  --dash-c0:#5fd4ff;--dash-c1:#a7ecff;--dash-c2:#ffb45e;--dash-c3:#4f7cff;--dash-c4:#a48bff;--dash-c5:#3b82f6;
+  color-scheme:dark;display:flex;flex-direction:column;gap:clamp(18px,2.4vw,28px);font-variant-numeric:tabular-nums;
+  background:radial-gradient(1200px 500px at 85% -10%,rgba(95,212,255,.10),transparent 60%),radial-gradient(900px 400px at -10% 10%,rgba(164,139,255,.08),transparent 60%),linear-gradient(180deg,var(--bg2),var(--bg));
+  color:var(--ink);padding:clamp(16px,3vw,36px);font-family:"Aptos","Aptos Display",var(--font-anthropic-sans),system-ui,sans-serif;min-height:100%}
+.mx button,.mx select,.mx .dash-select{font-family:inherit}
+.mx-head{display:flex;flex-direction:column;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.mx-chip{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ice2);background:rgba(95,212,255,.08);border:1px solid rgba(95,212,255,.25);border-radius:999px;padding:5px 12px}
+.mx-chip i{width:7px;height:7px;border-radius:50%;background:var(--ice);box-shadow:0 0 10px var(--ice)}
+.mx-head h1{font-weight:300;letter-spacing:-.01em;font-size:clamp(28px,4.2vw,44px);line-height:1.08;color:var(--ink);margin:0}
+.mx-lede{color:#c3cfe0;font-size:clamp(15px,1.6vw,17px);line-height:1.5;margin:0;max-width:72ch}
+.mx-bar{display:flex;flex-wrap:wrap;gap:var(--cds-gap-md);align-items:center}
+.mx-bar label{color:var(--mute);text-transform:uppercase;letter-spacing:.08em;font-size:12px}
+.mx-bar .dash-select{min-height:44px;font-size:16px;min-width:min(300px,100%);background-color:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:12px}
+.mx-meta{color:var(--mute);font-size:12px}
+.mx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:var(--cds-gap-md)}
+.mx-card,.mx-panel{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:20px;padding:clamp(16px,2vw,22px);min-width:0;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 18px 40px -24px rgba(0,0,0,.8)}
+.mx-kpis .mx-card{position:relative;overflow:hidden}
+.mx-kpis .mx-card::after{content:"";position:absolute;right:-40px;bottom:-60px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(95,212,255,.12),transparent 70%);pointer-events:none}
+.mx-k{text-transform:uppercase;letter-spacing:.07em;font-size:11px;color:var(--mute);line-height:1.35;margin:0 0 6px}
+.mx-v{font-weight:300;font-size:clamp(30px,3.4vw,40px);letter-spacing:-.02em;line-height:1.1;min-height:1.1em;color:var(--ink)}
+.mx-s{font-size:12px;color:var(--mute);margin-top:6px;min-height:1.2em;line-height:1.45}
+.mx-good{color:var(--ok)}.mx-bad{color:var(--bad)}.mx-warn{color:var(--warn)}
+.mx h2{text-transform:uppercase;letter-spacing:.08em;font-size:13px;font-weight:600;color:var(--ice2);margin:0 0 6px}
+.mx-sub{color:var(--mute);font-size:13px;line-height:1.5;margin:0 0 var(--cds-gap-md);max-width:90ch}
+.mx-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:var(--cds-gap-lg)}
+.mx-fig{position:relative;min-height:240px;width:100%}
+.mx-fig.tall{min-height:310px}
+.mx-fig svg{display:block;width:100%;overflow:visible}
+.mx-fig text{fill:var(--mute);font-size:11px}
+.mx-fig .domain,.mx-fig .tick line{stroke:var(--line)}
+.mx-fig .grid line{stroke:rgba(134,150,174,.12)}
+.mx-fig svg path[fill="none"]:not(.domain){filter:drop-shadow(0 0 5px rgba(120,215,255,.35))}
+.mx-tt{position:absolute;pointer-events:none;background:rgba(15,23,38,.96);border:1px solid rgba(95,212,255,.35);color:var(--ink);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.6);padding:8px 10px;font-size:12px;line-height:1.5;white-space:nowrap;z-index:5}
+.mx-tt b{color:var(--ice2);font-weight:600}
+.mx-legend{display:flex;flex-wrap:wrap;gap:var(--cds-gap-md);font-size:12px;color:var(--mute);margin-bottom:var(--cds-gap-sm)}
+.mx-legend i{display:inline-block;width:12px;height:3px;vertical-align:middle;margin-right:6px;border-radius:3px}
+.mx-legend i.sq{height:10px;width:10px}
+.mx-scroll{overflow-x:auto}
+.mx table{border-collapse:collapse;width:100%;font-size:13px;color:var(--ink)}
+.mx th,.mx td{padding:8px;border-bottom:1px solid rgba(34,49,74,.7);text-align:right;white-space:nowrap}
+.mx th:first-child,.mx td:first-child{text-align:left}
+.mx th{color:var(--mute);text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:600}
+.mx tbody tr:hover td{background:rgba(95,212,255,.05)}
+.mx tr.now td{color:var(--ice2);font-weight:600}
+.mx-aval{display:grid;grid-template-columns:auto 1fr;gap:var(--cds-gap-lg);align-items:start}
+.mx-dg{display:flex;flex-direction:column;gap:8px;min-width:140px}
+.mx-dg div{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink)}
+.mx-dg b{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;font-size:18px;color:#111;box-shadow:0 0 18px rgba(255,255,255,.08)}
+.mx-note{font-size:15px;color:#c3cfe0;margin:0 0 var(--cds-gap-sm);max-width:72ch;line-height:1.5}
+.mx a{color:var(--ice)}
+.mx-ringwrap{display:flex;align-items:center;gap:14px}
+.mx-ring{width:64px;height:64px;flex:none}
+.mx-split{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:flex-start}
+.mx-split > div{min-width:0}
+.mx-split .mx-s{margin-top:2px}
+.mx-plus{color:var(--ice);text-shadow:0 0 14px rgba(95,212,255,.35)}
+@media (min-width:900px){.mx-wide{grid-column:span 2}}
+.mx-ring svg{display:block;width:64px;height:64px}
+.mx details{font-size:13px;color:var(--mute);max-width:85ch;border-top:1px solid var(--line);padding-top:14px}
+.mx details summary{cursor:pointer;color:var(--ice2);text-transform:uppercase;letter-spacing:.07em;font-size:12px}
+.mx details p{margin:8px 0;line-height:1.55}
+@media (max-width:600px){.mx{padding:14px}.mx-card,.mx-panel{border-radius:16px}.mx-aval{grid-template-columns:1fr}}
+/* ---- barra a schede e scorrimento laterale ---- */
+.mx-bar{gap:12px 18px}
+.mx-tabbar{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px;padding:10px 0;margin:-6px 0;background:linear-gradient(180deg,rgba(11,17,28,.97),rgba(11,17,28,.88));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.mx-stsel{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.mx-tabs{position:relative;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:4px;max-width:100%}
+.mx-tabs::-webkit-scrollbar{display:none}
+.mx-tab{position:relative;z-index:1;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:66px;min-height:52px;padding:6px 10px;border:0;background:none;color:var(--mute);font:inherit;font-size:11px;letter-spacing:.02em;border-radius:12px;cursor:pointer}
+.mx-tab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.mx-tab:hover{color:var(--ink)}
+.mx-tab.on{color:var(--ink)}
+.mx-tab.on svg{color:var(--ice);stroke:currentColor;filter:drop-shadow(0 0 6px rgba(95,212,255,.6))}
+.mx-tab:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.mx-ind{position:absolute;z-index:0;top:4px;bottom:4px;left:0;width:66px;border-radius:12px;background:linear-gradient(160deg,rgba(95,212,255,.2),rgba(95,212,255,.06));border:1px solid rgba(95,212,255,.35);box-shadow:0 0 18px rgba(95,212,255,.15);pointer-events:none}
+.mx-rangebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mx-rangebar .dash-select{min-height:36px;font-size:14px;background-color:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px}
+.mx-slider{scroll-margin-top:96px;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;align-items:flex-start;outline:none;overscroll-behavior-x:contain}
+.mx-slider::-webkit-scrollbar{display:none}
+.mx-slide{flex:0 0 100%;width:100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+.mx-stack{display:flex;flex-direction:column;gap:var(--cds-gap-lg)}
+@media (prefers-reduced-motion:no-preference){.mx-ind{transition:transform .38s cubic-bezier(.2,.8,.2,1),width .38s cubic-bezier(.2,.8,.2,1)}.mx-slider{scroll-behavior:smooth;transition:height .3s ease}.mx-tab{transition:color .2s}}
+/* ---- webcam ---- */
+.mx{--topH:66px}
+.mx-top{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;height:var(--topH);box-sizing:border-box;padding:10px clamp(16px,3vw,36px);margin:calc(-1 * clamp(16px,3vw,36px)) calc(-1 * clamp(16px,3vw,36px)) 0;background:linear-gradient(180deg,rgba(11,17,28,.97),rgba(11,17,28,.9));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.mx .mx-tabbar{top:var(--topH)}
+.mx .mx-slider{scroll-margin-top:calc(var(--topH) + 100px)}
+.mx.mx-onwc > :not(.mx-head):not(#webcam):not(.mx-top){display:none}
+@media (max-width:600px){.mx{--topH:60px}.mx-top{padding:9px 14px;margin:-14px -14px 0}}
+.mx-home{display:inline-grid;place-items:center;width:46px;height:46px;border-radius:14px;background:var(--card2);border:1px solid var(--line);flex:none}
+.mx-home svg{width:34px;height:34px}
+.mx-home:hover{border-color:rgba(232,116,42,.6)}
+.mx-backbtn{display:none;place-items:center;width:46px;height:46px;border-radius:999px;background:var(--card2);border:1px solid var(--line);color:var(--ink);margin-left:auto}
+.mx-backbtn svg{width:22px;height:22px}
+.mx-backbtn:hover{color:var(--ice2);border-color:rgba(95,212,255,.5)}
+.mx.mx-onwc .mx-backbtn{display:inline-grid}
+.mx-top .mx-wcbtn{margin-left:auto}
+.mx-home:focus-visible,.mx-backbtn:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.mx-wcbtn{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:8px 16px;border-radius:999px;background:var(--card2);border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:14px;box-shadow:0 8px 20px -12px rgba(0,0,0,.8)}
+.mx-wcbtn:hover{border-color:rgba(95,212,255,.5);color:var(--ice2)}
+.mx-wcbtn svg{width:18px;height:18px}
+.mx-wcbtn:focus-visible,.mx-back:focus-visible,.mx-wc:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.mx.mx-onwc .mx-wcbtn,.mx.mx-onwc .mx-lede{display:none}
+.mx.mx-onwc .mx-head{padding-right:0}
+.mx-wcview{display:flex;flex-direction:column;gap:var(--cds-gap-md)}
+.mx-wchead{display:flex;flex-direction:column;gap:6px}
+.mx-wchead h2{margin:4px 0 0}
+.mx-back{align-self:flex-start;color:var(--ice);text-decoration:none;font-size:14px;padding:6px 0}
+.mx-wcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:var(--cds-gap-md)}
+.mx-wc{display:flex;flex-direction:column;border-radius:18px;overflow:hidden;background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;box-shadow:0 18px 40px -24px rgba(0,0,0,.8)}
+.mx-wc:hover{border-color:rgba(95,212,255,.45)}
+.mx-wc-pic{position:relative;aspect-ratio:20/9;background:#22314a;overflow:hidden}
+.mx-wc-pic > svg,.mx-wc-pic > img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.mx-wc-ov{position:absolute;left:12px;bottom:10px;display:flex;align-items:center;gap:8px;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.55)}
+.mx-wc-t{font-size:24px;font-weight:300;line-height:1.05}
+.mx-wc-t span:last-child{font-size:12px;font-weight:400}
+.mx-wc-live{position:absolute;top:10px;right:10px;font-size:11px;padding:3px 10px;border-radius:999px;background:rgba(11,17,28,.6);color:#fff;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.mx-wc-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;background:#1c2738;border-bottom:2px solid var(--ice)}
+.mx-wc-bar b{font-weight:500;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mx-wc-bar > span{font-size:13px;color:#c3cfe0;white-space:nowrap}
+.mx-wc-ft{display:flex;flex-wrap:wrap;gap:6px 16px;padding:9px 14px 12px;font-size:12px;color:var(--mute)}
+.mx-wc-ft > span > span{color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){.mx-wc{transition:transform .2s,border-color .2s}.mx-wc:hover{transform:translateY(-2px)}}
+@media (max-width:600px){.mx-wcbtn{min-height:40px;padding:7px 14px}.mx-home,.mx-backbtn{width:42px;height:42px}.mx-home svg{width:30px;height:30px}}
+@media (max-width:600px){.mx-tab{min-width:58px;padding:6px 6px;font-size:10px}.mx-tabbar{margin:0 -14px;padding:8px 14px}}
+/* ---- tempo di oggi, neve + valanghe, tabella previsioni ---- */
+.mx-duo{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--cds-gap-md);align-items:start}
+@media (min-width:1280px){.mx-duo{grid-template-columns:minmax(0,1fr) minmax(0,2fr);align-items:stretch}}
+.mx-aval{grid-template-columns:minmax(150px,max-content) minmax(0,1fr)}
+.mx-dg div{max-width:240px}
+.mx-chip{display:inline-block;white-space:normal;line-height:1.5}
+.mx-chip i{display:inline-block;vertical-align:middle;margin-right:8px}
+@media (max-width:600px){.mx-chip{font-size:11px;letter-spacing:.04em;padding:5px 12px}.mx-aval{grid-template-columns:minmax(0,1fr)}.mx-dg div{max-width:none}}
+.mx-nowcard{padding:0}
+.mx-nowbox{padding:clamp(16px,2vw,22px);height:100%;box-sizing:border-box;border-radius:inherit}
+.mx-now{display:flex;align-items:center;gap:14px}
+.mx-wx{display:inline-flex;line-height:0;flex:none}
+.mx-wx.big svg{filter:drop-shadow(0 0 12px rgba(188,217,255,.18))}
+.mx-now .mx-k{margin-bottom:2px}
+.mx-now-min{font-size:.55em;color:var(--mute)}
+.mx-now-c{font-size:14px;color:#c3cfe0;margin-top:2px}
+.mx-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.mx-chips div{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--ink);min-width:0}
+.mx-chips div > span:first-child{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+.mx-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mx table.mx-fc th{text-align:center;vertical-align:middle;padding:6px 10px}
+.mx table.mx-fc th:first-child{text-align:left}
+.mx-fc th svg{display:inline-block;flex:none;width:22px;height:22px;vertical-align:middle;color:#c3cfe0;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.mx-fc th small{display:inline-block;vertical-align:middle;margin-left:5px;font-size:11px;letter-spacing:0;text-transform:none;line-height:22px}
+.mx table.mx-fc th{position:relative;white-space:nowrap;line-height:22px}
+.mx table.mx-fc td{text-align:center;vertical-align:middle;padding:6px 10px;font-size:14px}
+.mx table.mx-fc td.mx-fc-day{text-align:left;font-weight:600;font-size:15px}
+.mx-fc td small{color:var(--mute);font-size:11px}
+.mx-fc td.dim{color:var(--mute)}
+.mx table.mx-fc td.mx-fc-bar{padding:4px 6px}
+.mx-rb{display:block;margin:0 auto;overflow:visible}
+.mx-rb-d{fill:#e9f0fa;stroke:#131c2c;stroke-width:2}
+.mx-rb-m.feel{fill:#131c2c;stroke:#a48bff;stroke-width:2.2}
+.mx-rb-m.snow{fill:#5fd4ff;stroke:#131c2c;stroke-width:2;filter:drop-shadow(0 0 4px rgba(95,212,255,.8))}
+.mx-rb text{font-size:11px;fill:#e9f0fa}
+.mx-rb text.feel{fill:#c3b4ff}.mx-rb text.snow{fill:#a7ecff}.mx-rb text.dim{fill:#8696ae}
+.mx-rb-m.rain{fill:#5fb0ff;stroke:#131c2c;stroke-width:2;filter:drop-shadow(0 0 4px rgba(95,176,255,.8))}
+.mx-rb-m.gust{fill:#ff8fa6;stroke:#131c2c;stroke-width:2}
+.mx-rb text.rain{fill:#8cc6ff}.mx-rb text.gust{fill:#ff8fa6}
+.mx-rb .mx-rb-m{fill:#ffb45e;stroke:#131c2c;stroke-width:2;filter:drop-shadow(0 0 4px rgba(255,180,94,.6))}
+.mx-rb text.feel,.mx-rb text.snow,.mx-rb text.rain,.mx-rb text.gust{fill:#ffc98a}
+.mx table.mx-fc td.mx-fc-pr{white-space:nowrap}
+.mx-fc-pr > *{display:inline-block;vertical-align:middle}
+.mx-fc-pt{display:inline-flex;flex-direction:column;align-items:center;gap:1px;width:24px;margin-right:4px;line-height:1}
+.mx table.mx-fc td.mx-fc-bar,.mx table.mx-fc th.v-t,.mx table.mx-fc th.v-p,.mx table.mx-fc th.v-w{width:196px;min-width:196px;max-width:196px;padding-left:6px;padding-right:6px}
+.mx-fc-pt small{font-size:10px}
+.mx-phead{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;margin-bottom:10px}
+.mx-phead h2{margin:0}
+.mx-seg{position:relative;display:inline-flex;gap:2px;padding:3px;background:var(--card);border:1px solid var(--line);border-radius:999px;flex:none}
+.mx-segb{position:relative;z-index:1;display:grid;place-items:center;width:46px;height:32px;padding:0;border:0;border-radius:999px;background:none;color:var(--mute);cursor:pointer}
+.mx-segb svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.mx-segb:hover,.mx-segb.on{color:var(--ink)}
+.mx-segb:focus-visible{outline:2px solid var(--ice);outline-offset:1px}
+.mx-seg-ind{position:absolute;z-index:0;top:3px;bottom:3px;left:0;width:46px;border-radius:999px;background:rgba(233,240,250,.14);box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:none}
+@media (prefers-reduced-motion:no-preference){.mx-seg-ind{transition:transform .32s cubic-bezier(.2,.8,.2,1),width .32s cubic-bezier(.2,.8,.2,1)}}
+.mx table.mx-fc{width:auto;min-width:min(100%,520px)}
+.mx-fc.view-t .v-p,.mx-fc.view-t .v-w,.mx-fc.view-p .v-t,.mx-fc.view-p .v-w,.mx-fc.view-w .v-t,.mx-fc.view-w .v-p{display:none}
+</style>
+
+<div class="mx">
+  <div class="mx-top">
+    <a class="mx-home" href="#" aria-label="Home: torna alla dashboard" title="Home"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M48 26 Q48 14 60 14 Q72 14 72 26" fill="none" stroke="#F3EFEA" stroke-width="5" stroke-linecap="round"/><rect x="28" y="24" width="64" height="82" rx="22" fill="#E8742A"/><path d="M28 46 Q28 24 50 24 L70 24 Q92 24 92 46 L92 52 Q60 62 28 52 Z" fill="#B9531A"/><rect x="56" y="48" width="8" height="12" rx="3" fill="#141714"/><rect x="38" y="82" width="44" height="18" rx="8" fill="#F08A45"/><path d="M38 88 L82 88" stroke="#B9531A" stroke-width="2"/><circle cx="48" cy="70" r="6.2" fill="#FFFDF8"/><circle cx="72" cy="70" r="6.2" fill="#FFFDF8"/><circle cx="49" cy="71" r="3.2" fill="#141714"/><circle cx="73" cy="71" r="3.2" fill="#141714"/><path d="M55 79 Q60 82.5 65 79" fill="none" stroke="#141714" stroke-width="2.4" stroke-linecap="round"/><path d="M92 64 q10 0 10 10 v8 q0 8 -8 8 h-2" fill="none" stroke="#F3EFEA" stroke-width="4" stroke-linecap="round"/></svg></a>
+    <a class="mx-backbtn" href="#" aria-label="Indietro: torna alla dashboard" title="Indietro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    <a class="mx-wcbtn" href="#webcam"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5 7.6 6.5H5A2.5 2.5 0 0 0 2.5 9v8A2.5 2.5 0 0 0 5 19.5h14a2.5 2.5 0 0 0 2.5-2.5V9A2.5 2.5 0 0 0 19 6.5h-2.6L15 4.5z" fill="currentColor"/><circle cx="12" cy="13" r="3.3" fill="none" stroke="#172234" stroke-width="1.8"/></svg><span>Webcam</span></a>
+  </div>
+  <header class="mx-head" id="intro">
+    <span class="mx-chip"><i></i>Aggiornato il <span data-draw="updated">—</span> · media di 6 modelli</span>
+    <h1>Meteo e neve sulle mie stazioni</h1>
+    <p class="mx-lede" data-draw="lede">—</p>
+  </header>
+
+  <div class="mx-bar" id="picker">
+    <div class="mx-stsel">
+      <label for="mx-st">Stazione</label>
+      <select id="mx-st" class="dash-select" data-draw="station" aria-label="Stazione" data-source="stations"></select>
+    </div>
+    <span class="mx-meta" data-draw="stmeta">—</span>
+  </div>
+
+  <section class="mx-kpis" id="kpis">
+    <div class="mx-card mx-nowcard"><div class="mx-nowbox" data-draw="k_now" data-source="daily">—</div></div>
+    <div class="mx-card mx-wide"><p class="mx-k">Manto nevoso e neve in arrivo</p><div class="mx-split"><div><div class="mx-v" data-draw="k_depth">—</div><div class="mx-s">al suolo oggi (stima del modello)</div></div><div><div class="mx-v mx-plus" data-draw="k_fc">—</div><div class="mx-s">in arrivo nei prossimi 7 giorni (media dei modelli)</div></div></div><div class="mx-s" data-draw="k_fc_s">—</div><div class="mx-s" data-draw="k_depth_s">—</div></div>
+    <div class="mx-card"><p class="mx-k">Oggi: temperatura reale / percepita</p><div class="mx-v" data-draw="k_temp">—</div><div class="mx-s" data-draw="k_temp_s">—</div></div>
+  </section>
+
+  <div class="mx-duo">
+    <div class="mx-card mx-snowcard"><p class="mx-k">Neve caduta in stagione (dal 1° ottobre)</p><div class="mx-ringwrap"><div class="mx-ring" data-draw="k_ring" data-source="cur"></div><div class="mx-v" data-draw="k_snow">—</div></div><div class="mx-s" data-draw="k_snow_s">—</div></div>
+  <section class="mx-card" id="valanghe">
+    <h2>Bollettino valanghe</h2>
+    <div class="mx-aval">
+      <div class="mx-dg" data-draw="avaldg" data-source="avalanche">—</div>
+      <div>
+        <p class="mx-note" data-draw="avaltext">—</p>
+        <p class="mx-sub" data-draw="avalsrc">—</p>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <div class="mx-tabbar" id="sezioni">
+    <nav class="mx-tabs" role="tablist" aria-label="Sezioni della dashboard">
+      <span class="mx-ind" aria-hidden="true"></span>
+      <button type="button" class="mx-tab on" role="tab" aria-selected="true" aria-controls="tab-condizioni"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><mask id="mxm-t0"><rect width="24" height="24" fill="#fff"/><path d="M5 20.5h10.5a3.8 3.8 0 0 0 .4-7.6 5.5 5.5 0 0 0-10.6 1.2A3.2 3.2 0 0 0 5 20.5z" fill="#000" stroke="#000" stroke-width="3" stroke-linejoin="round"/></mask></defs><circle cx="17" cy="7.6" r="4.3" fill="currentColor" stroke="none" mask="url(#mxm-t0)"/><path d="M5 20.5h10.5a3.8 3.8 0 0 0 .4-7.6 5.5 5.5 0 0 0-10.6 1.2A3.2 3.2 0 0 0 5 20.5z" fill="currentColor" stroke="none"/></svg><span>Condizioni</span></button>
+      <button type="button" class="mx-tab" role="tab" aria-selected="false" aria-controls="tab-temperatura"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z" fill="currentColor" stroke="none"/><path d="M16.5 6h2M16.5 9h2M16.5 12h2"/></svg><span>Temperatura</span></button>
+      <button type="button" class="mx-tab" role="tab" aria-selected="false" aria-controls="tab-umidita"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5s-6 6.6-6 11a6 6 0 0 0 12 0c0-4.4-6-11-6-11z" fill="currentColor" stroke="none"/></svg><span>Umidità</span></button>
+      <button type="button" class="mx-tab" role="tab" aria-selected="false" aria-controls="tab-precipitazioni"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14h10a4 4 0 0 0 0-8 6 6 0 0 0-11.4 2A3 3 0 0 0 7 14z" fill="currentColor" stroke="none"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3"/></svg><span>Precipitazioni</span></button>
+      <button type="button" class="mx-tab" role="tab" aria-selected="false" aria-controls="tab-vento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h11a3 3 0 1 0-3-3"/><path d="M3 13h15a3 3 0 1 1-3 3"/><path d="M3 17h7"/></svg><span>Vento</span></button>
+      <button type="button" class="mx-tab" role="tab" aria-selected="false" aria-controls="tab-zero"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 20l6.5-11 4 6 2.5-3.5L21.5 20z"/><path d="M2 11.5h20" stroke-dasharray="2 2"/></svg><span>Zero termico</span></button>
+      <button type="button" class="mx-tab" role="tab" aria-selected="false" aria-controls="tab-neve"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6"/><path d="M9.5 4l2.5 2 2.5-2M9.5 20l2.5-2 2.5 2M4 10.2l3.2-.6-1-3M20 13.8l-3.2.6 1 3M4 13.8l3.2.6-1 3M20 10.2l-3.2-.6 1-3"/></svg><span>Neve</span></button>
+    </nav>
+    <div class="mx-rangebar">
+      <span class="mx-meta">Grafici giornalieri:</span>
+      <select id="mx-range" class="dash-select" aria-label="Periodo dei grafici giornalieri"><option value="30">Ultimi 30 giorni + previsione</option><option value="all">Tutta la stagione</option></select>
+    </div>
+  </div>
+
+  <div class="mx-slider" id="mx-slider" tabindex="0" aria-label="Sezioni: scorri lateralmente">
+
+    <section class="mx-slide" id="tab-condizioni" role="tabpanel" aria-label="Condizioni">
+      <div class="mx-panel">
+        <div class="mx-phead"><h2>Previsione dei prossimi 7 giorni</h2><div class="mx-seg" role="tablist" aria-label="Barra mostrata in tabella"><span class="mx-seg-ind" aria-hidden="true"></span><button type="button" class="mx-segb on" role="tab" aria-selected="true" data-v="t" title="Temperatura" aria-label="Temperatura"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z" fill="currentColor" stroke="none"/><path d="M16.5 6h2M16.5 9h2M16.5 12h2"/></svg></button><button type="button" class="mx-segb" role="tab" aria-selected="false" data-v="p" title="Precipitazioni" aria-label="Precipitazioni"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14h10a4 4 0 0 0 0-8 6 6 0 0 0-11.4 2A3 3 0 0 0 7 14z" fill="currentColor" stroke="none"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3"/></svg></button><button type="button" class="mx-segb" role="tab" aria-selected="false" data-v="w" title="Vento" aria-label="Vento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h11a3 3 0 1 0-3-3"/><path d="M3 13h15a3 3 0 1 1-3 3"/><path d="M3 17h7"/></svg></button></div></div>
+        <p class="mx-sub">Media di 6 modelli alla quota della stazione; ogni barra ha la stessa scala per tutta la settimana. Puntini bianchi: minimo e massimo. Puntino arancione: percepita minima, media dei modelli o raffica. Precipitazioni in cm se nevica, in mm se piove. Oltre i 4–5 giorni restano solo i modelli globali.</p>
+        <div class="mx-scroll">
+          <table class="mx-fc view-t" data-source="daily" data-row-key="loc,date">
+            <thead><tr><th data-field="date">Giorno</th><th data-field="code" title="Tempo"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><mask id="mxm-c1"><rect width="24" height="24" fill="#fff"/><path d="M5 20.5h10.5a3.8 3.8 0 0 0 .4-7.6 5.5 5.5 0 0 0-10.6 1.2A3.2 3.2 0 0 0 5 20.5z" fill="#000" stroke="#000" stroke-width="3" stroke-linejoin="round"/></mask></defs><circle cx="17" cy="7.6" r="4.3" fill="currentColor" stroke="none" mask="url(#mxm-c1)"/><path d="M5 20.5h10.5a3.8 3.8 0 0 0 .4-7.6 5.5 5.5 0 0 0-10.6 1.2A3.2 3.2 0 0 0 5 20.5z" fill="currentColor" stroke="none"/></svg><span class="mx-sr">Tempo</span></th><th class="v-t" data-field="tmax" title="Temperatura: minima, massima e percepita minima"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z" fill="currentColor" stroke="none"/><path d="M16.5 6h2M16.5 9h2M16.5 12h2"/></svg><small>(°C)</small><span class="mx-sr">Temperatura</span></th><th class="v-p" data-field="precip" title="Precipitazioni: neve in cm o pioggia in mm"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14h10a4 4 0 0 0 0-8 6 6 0 0 0-11.4 2A3 3 0 0 0 7 14z" fill="currentColor" stroke="none"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3"/></svg><span class="mx-sr">Precipitazioni</span></th><th class="v-w" data-field="wind" title="Vento minimo e massimo, puntino rosa la raffica"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h11a3 3 0 1 0-3-3"/><path d="M3 13h15a3 3 0 1 1-3 3"/><path d="M3 17h7"/></svg><small>(km/h)</small><span class="mx-sr">Vento e raffica</span></th><th data-field="rh" title="Umidità"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5s-6 6.6-6 11a6 6 0 0 0 12 0c0-4.4-6-11-6-11z" fill="currentColor" stroke="none"/></svg><span class="mx-sr">Umidità</span></th><th data-field="sun_h" title="Ore di sole"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4 7 7M17 17l1.6 1.6M5.4 18.6 7 17M17 7l1.6-1.6"/></svg><span class="mx-sr">Ore di sole</span></th><th data-field="freezing_lvl" title="Zero termico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 20l6.5-11 4 6 2.5-3.5L21.5 20z"/><path d="M2 11.5h20" stroke-dasharray="2 2"/></svg><span class="mx-sr">Zero termico</span></th></tr></thead>
+            <tbody data-draw="fctable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="mx-slide" id="tab-temperatura" role="tabpanel" aria-label="Temperatura">
+      <div class="mx-panel">
+        <h2>Temperatura reale e percepita</h2>
+        <p class="mx-sub">Massima e minima del giorno, °C. Il percepito tiene conto di vento e umidità.</p>
+        <div class="mx-legend"><span><i style="background:var(--dash-c2)"></i>Max reale</span><span><i style="background:var(--dash-c0)"></i>Min reale</span><span><i style="background:var(--cds-chart-muted)"></i>Min percepita</span></div>
+        <div class="mx-fig tall" data-draw="tempchart" data-source="daily">—</div>
+      </div>
+    </section>
+
+    <section class="mx-slide" id="tab-umidita" role="tabpanel" aria-label="Umidità">
+      <div class="mx-panel">
+        <h2>Umidità relativa</h2>
+        <p class="mx-sub">Umidità relativa media del giorno, %. Valori alti e stabili accompagnano nebbia, nubi basse e precipitazioni.</p>
+        <div class="mx-legend"><span><i style="background:var(--dash-c1)"></i>Umidità media (%)</span></div>
+        <div class="mx-fig tall" data-draw="humchart" data-source="daily">—</div>
+      </div>
+    </section>
+
+    <section class="mx-slide" id="tab-precipitazioni" role="tabpanel" aria-label="Precipitazioni">
+      <div class="mx-panel">
+        <h2>Precipitazioni</h2>
+        <p class="mx-sub">Precipitazione totale del giorno, mm di acqua (la neve è contata come acqua di fusione: 1 mm ≈ 1 cm di neve fresca, a seconda della temperatura).</p>
+        <div class="mx-legend"><span><i class="sq" style="background:var(--dash-c5)"></i>Precipitazione (mm)</span></div>
+        <div class="mx-fig tall" data-draw="precipchart" data-source="daily">—</div>
+      </div>
+    </section>
+
+    <section class="mx-slide" id="tab-vento" role="tabpanel" aria-label="Vento">
+      <div class="mx-panel">
+        <h2>Vento e raffiche</h2>
+        <p class="mx-sub">Velocità massima del vento e raffica massima del giorno, km/h.</p>
+        <div class="mx-legend"><span><i class="sq" style="background:var(--dash-c3)"></i>Vento max</span><span><i style="background:var(--cds-chart-status-critical)"></i>Raffica max</span></div>
+        <div class="mx-fig tall" data-draw="windchart" data-source="daily">—</div>
+      </div>
+    </section>
+
+    <section class="mx-slide" id="tab-zero" role="tabpanel" aria-label="Zero termico">
+      <div class="mx-panel">
+        <h2>Zero termico e quota della stazione</h2>
+        <p class="mx-sub">Quota media dello zero termico nel giorno. Quando sale sopra la stazione, la precipitazione rischia di essere pioggia.</p>
+        <div class="mx-legend"><span><i style="background:var(--dash-c4)"></i>Zero termico medio (m)</span><span><i style="background:var(--cds-chart-reference)"></i>Quota stazione</span></div>
+        <div class="mx-fig tall" data-draw="frzchart" data-source="daily stations">—</div>
+      </div>
+    </section>
+
+    <section class="mx-slide mx-stack" id="tab-neve" role="tabpanel" aria-label="Neve">
+      <div class="mx-panel" id="stagione">
+        <h2>Neve giorno per giorno e manto al suolo</h2>
+        <p class="mx-sub">Ogni valore è la media di 6 modelli meteo. A destra della linea "oggi" è previsione: la barretta sottile mostra il minimo e il massimo previsti dai singoli modelli.</p>
+        <div class="mx-legend"><span><i class="sq" style="background:var(--dash-c0)"></i>Neve fresca (cm/giorno)</span><span><i style="background:var(--dash-c1)"></i>Altezza neve al suolo (cm)</span></div>
+        <div class="mx-fig tall" data-draw="snowchart" data-source="daily">—</div>
+      </div>
+
+      <div class="mx-panel" id="modelli">
+        <h2>Previsione della prossima settimana, modello per modello</h2>
+        <p class="mx-sub">Neve totale prevista nei prossimi 7 giorni da ciascun modello, cm. La linea verticale è la media usata nella dashboard. AROME e ICON-2I sono i più precisi sulle Alpi ma coprono solo i primi 3–4 giorni, quindi il loro totale è parziale.</p>
+        <div class="mx-legend"><span><i class="sq" style="background:var(--dash-c0)"></i>Modello (7 giorni)</span><span><i class="sq" style="background:var(--cds-chart-muted)"></i>Copertura parziale</span><span><i style="background:var(--cds-chart-reference);height:12px;width:2px"></i>Media dei modelli</span></div>
+        <div class="mx-fig" data-draw="modelchart" data-source="models cur">—</div>
+      </div>
+
+      <div class="mx-panel" id="storico">
+        <h2>Questa stagione contro le ultime 10</h2>
+        <p class="mx-sub">Dal 1° ottobre. In grigio le stagioni 2016-17 → 2025-26, tratteggiata la mediana, in evidenza la stagione in corso (fino al <span data-draw="asof">—</span>).</p>
+        <div class="mx-legend"><span><i style="background:var(--dash-c0);height:4px"></i>2026-27</span><span><i style="background:var(--cds-chart-reference)"></i>Mediana 10 anni</span><span><i style="background:var(--cds-chart-muted)"></i>Singole stagioni</span></div>
+        <div class="mx-fig tall" data-draw="cumchart" data-source="past_cum cur_season cummed">—</div>
+      </div>
+
+      <div class="mx-grid2" id="confronti">
+        <div class="mx-panel" id="adata">
+          <h2>Neve caduta al <span data-draw="asof">—</span>, anno per anno</h2>
+          <p class="mx-sub">Dal 1° ottobre al <span data-draw="asof">—</span> di ogni stagione, cm. Tratteggio: mediana delle 10 stagioni passate.</p>
+          <div class="mx-fig" data-draw="todatechart" data-source="todate">—</div>
+        </div>
+        <div class="mx-panel" id="totali">
+          <h2>Neve totale a fine stagione</h2>
+          <p class="mx-sub">Neve totale ottobre – aprile, cm. La barra in evidenza è la stagione in corso, finora. Tratteggio: mediana delle 10 stagioni passate.</p>
+          <div class="mx-fig" data-draw="totchart" data-source="past_seasons cur">—</div>
+        </div>
+      </div>
+
+      <div class="mx-panel" id="tabella">
+        <h2>Le stagioni a confronto</h2>
+        <p class="mx-sub">Neve alla stessa data e a fine stagione, giorni di nevicata (≥ 1 cm), nevicata più forte in un giorno, precipitazione totale e temperatura media dell'inverno (dic–feb).</p>
+        <div class="mx-scroll">
+          <table data-source="past_seasons" data-row-key="loc,season">
+            <thead><tr><th data-field="season">Stagione</th><th data-field="snow_todate" data-source="todate">Neve alla data</th><th data-field="snow_total">Neve totale cm</th><th data-field="snow_days">Giorni di neve</th><th data-field="max_day_snow">Max in un giorno</th><th data-field="precip_total">Precip. mm</th><th data-field="tmean_djf">T media dic–feb</th></tr></thead>
+            <tbody data-draw="seasontable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mx-panel" id="tutte">
+        <h2>Tutte le stazioni: neve in stagione rispetto alla mediana</h2>
+        <p class="mx-sub">Neve caduta dal 1° ottobre al <span data-draw="asof">—</span>, quest'anno contro la mediana delle 10 stagioni precedenti alla stessa data, cm. Tocca una riga per aprire quella stazione.</p>
+        <div class="mx-legend"><span><i class="sq" style="background:var(--dash-c0)"></i>2026-27</span><span><i style="background:var(--cds-chart-reference);height:12px;width:2px"></i>Mediana 10 anni</span></div>
+        <div class="mx-fig" data-draw="allchart" data-source="cur stations">—</div>
+      </div>
+    </section>
+  </div>
+
+  <section class="mx-wcview" id="webcam" hidden>
+    <div class="mx-wchead"><h2>Webcam</h2><p class="mx-sub">Tocca una scheda per aprire la webcam live sul sito ufficiale. Sotto ogni webcam: manto nevoso, neve di oggi e neve prevista nei prossimi 7 giorni.</p></div>
+    <div class="mx-wcgrid" data-draw="webcams" data-source="stations daily cur">—</div>
+  </section>
+
+  <details id="note">
+    <summary>Da dove vengono i numeri e cosa tenere a mente</summary>
+    <p>La dashboard si aggiorna ogni mattina alle 8 (quando il computer di casa è acceso) e fino al 15 aprile 2027.</p>
+    <p>Meteo giornaliero e previsione: media di sei modelli presi da Open-Meteo alla quota della stazione. I modelli sono ECMWF IFS (centro europeo), ICON (servizio meteo tedesco), AROME (Météo-France), ICON-2I (ARPAE, Italia), UKMO (Met Office) e GFS (NOAA). Con almeno 4 modelli disponibili si scartano il valore più alto e il più basso e si fa la media degli altri; il tempo previsto è quello indicato dalla maggioranza. I giorni passati sono le analisi recenti dei modelli, da oggi in poi previsione. Neve al suolo e zero termico vengono da un solo modello (best match di Open-Meteo).</p>
+    <p>Confronto con gli anni passati: rianalisi ERA5 tramite l'archivio storico di Open-Meteo, alla stessa quota, per tutte le stagioni compresa quella in corso, così il confronto è coerente. ERA5 arriva con qualche giorno di ritardo, per questo la stagione in corso è aggiornata a qualche giorno fa. È un modello a griglia di circa 25 km: confronta bene un anno con l'altro, ma i valori assoluti possono differire dalle nevicate dichiarate dagli impianti.</p>
+    <p>Valanghe: bollettini di Valle d'Aosta, Euregio (Trentino) e ARPA Lombardia, letti da valanghe.report (AINEVA / EAWS). In inizio stagione alcuni servizi non emettono ancora il grado di pericolo.</p>
+    <p>La quinta webcam nel secondo screenshot non aveva nome visibile, quindi non è inclusa.</p>
+  </details>
+</div>
+
+<script>
+{
+window.MX = window.MX || {};
+const MX = window.MX;
+MX.C = ['#5fd4ff', '#a7ecff', '#ffb45e', '#4f7cff', '#a48bff', '#3b82f6'];
+MX.st = () => (dash.params().st || 'pradalago');
+MX.range = () => (dash.params().range || '30');
+MX.date = (s) => new Date(s + 'T00:00:00Z');
+MX.addD = (s, n) => { const t = MX.date(s); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+const it = d3.timeFormatLocale({dateTime: '%A %e %B %Y', date: '%d/%m/%Y', time: '%H:%M:%S', periods: ['', ''], days: ['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'], shortDays: ['dom','lun','mar','mer','gio','ven','sab'], months: ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'], shortMonths: ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic']});
+MX.fd = it.utcFormat('%e %b');
+MX.fday = it.utcFormat('%a %e %b');
+MX.flong = it.utcFormat('%e %B');
+MX.num = (v) => (v == null || v === '' ? null : +v);
+MX.wx = (c) => { c = +c; if (c === 0) return 'Sereno'; if (c <= 1) return 'Quasi sereno'; if (c === 2) return 'Poco nuvoloso'; if (c === 3) return 'Coperto'; if (c === 45 || c === 48) return 'Nebbia'; if (c >= 51 && c <= 57) return 'Pioviggine'; if (c >= 61 && c <= 67) return 'Pioggia'; if (c >= 71 && c <= 77) return 'Neve'; if (c >= 80 && c <= 82) return 'Rovesci'; if (c === 85 || c === 86) return 'Rovesci di neve'; if (c >= 95) return 'Temporale'; return '—'; };
+MX.rows = (id) => { const d = dash.data(id); return d.status === 'ok' ? d.data : null; };
+MX.today = () => { const f = MX.rows('fc'); if (!f || !f.length) return null; return f.reduce((a, r) => (r.date < a ? r.date : a), f[0].date); };
+MX.allRows = () => { const r = MX.rows('daily'); return r ? r.filter((x) => x.loc === MX.st()).map((x) => ({...x, dt: MX.date(x.date)})) : null; };
+MX.stRows = () => { const r = MX.allRows(); if (!r) return null; const t = MX.today(); if (MX.range() === 'all' || !t) return r; const from = MX.addD(t, -30); return r.filter((x) => x.date >= from); };
+MX.station = () => { const r = MX.rows('stations'); return r ? r.find((x) => x.loc === MX.st()) : null; };
+MX.median = (a) => { const s = a.filter((v) => v != null).sort((p, q) => p - q); if (!s.length) return null; const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+MX.dash = (el, msg) => { el.replaceChildren(); el.textContent = msg || '—'; };
+MX.span = (txt, src, field, where, cls) => { const s = document.createElement('span'); s.textContent = txt; if (src) s.dataset.source = src; if (field) s.dataset.field = field; if (where) s.dataset.where = where; if (cls) s.className = cls; return s; };
+MX.failed = (ids) => ids.some((i) => dash.data(i).status === 'error');
+MX.uid = () => 'g' + Math.random().toString(36).slice(2, 8);
+MX.grad = (f, id, color, top, bottom) => { const g = f.svg.append('defs').append('linearGradient').attr('id', id).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1); g.append('stop').attr('offset', '0%').attr('stop-color', color).attr('stop-opacity', top); g.append('stop').attr('offset', '100%').attr('stop-color', color).attr('stop-opacity', bottom); return `url(#${id})`; };
+MX.frame = (el, h, m) => {
+  el.replaceChildren();
+  const W = Math.max(280, el.clientWidth), H = h;
+  const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H).attr('role', 'img');
+  const tt = d3.select(el).append('div').attr('class', 'mx-tt').style('display', 'none');
+  return {svg, tt, W, H, m, iw: W - m.l - m.r, ih: H - m.t - m.b, g: svg.append('g').attr('transform', `translate(${m.l},${m.t})`)};
+};
+MX.tip = (f, el, event, lines) => {
+  f.tt.style('display', null).selectAll('div').data(lines).join('div').each(function (d, i) { const n = d3.select(this); n.selectAll('*').remove(); if (i === 0) n.append('b').text(d); else n.text(d); });
+  const [x, y] = d3.pointer(event, el); const tw = f.tt.node().offsetWidth;
+  f.tt.style('left', Math.max(0, Math.min(el.clientWidth - tw, x + 12)) + 'px').style('top', Math.max(0, y - 10) + 'px');
+};
+MX.dayAxis = (f, x, rows) => {
+  const n = f.iw < 420 ? 5 : 9;
+  const step = Math.ceil(rows.length / n);
+  const ticks = rows.filter((r, i) => i % step === 0).map((r) => r.date);
+  f.g.append('g').attr('transform', `translate(0,${f.ih})`).call(d3.axisBottom(x).tickValues(ticks).tickFormat((d) => MX.fd(MX.date(d))).tickSizeOuter(0));
+  const t = rows.find((r) => r.date === MX.today());
+  if (t) {
+    const xx = x(t.date);
+    f.g.append('rect').attr('x', xx).attr('y', 0).attr('width', Math.max(0, f.iw - xx)).attr('height', f.ih).attr('fill', 'rgba(134,150,174,.07)');
+    f.g.append('line').attr('x1', xx).attr('x2', xx).attr('y1', -4).attr('y2', f.ih).attr('stroke', '#c9d6ea').attr('stroke-dasharray', '3 3');
+    f.g.append('text').attr('x', xx + 4).attr('y', 8).text('oggi →');
+  }
+};
+MX.hover = (f, el, x, rows, fmt) => {
+  f.g.append('g').selectAll('rect').data(rows).join('rect').attr('x', (d) => x(d.date) - (x.step() - x.bandwidth()) / 2).attr('y', 0).attr('width', x.step()).attr('height', f.ih).attr('fill', 'transparent')
+    .on('mousemove', (e, d) => MX.tip(f, el, e, fmt(d))).on('mouseleave', () => f.tt.style('display', 'none'))
+    .on('touchstart', (e, d) => MX.tip(f, el, e, fmt(d)), {passive: true});
+};
+MX.tipLines = (d) => [MX.fday(d.dt) + (d.kind === 'prev' ? ' · previsione' : ''), `${MX.wx(d.code)}`, `Neve ${d.snow} cm · precip. ${d.precip} mm`, `T ${d.tmin}° / ${d.tmax}° · percepita ${d.feel_min}° / ${d.feel_max}°`, `Vento ${d.wind} km/h · raffica ${d.gust} km/h`, `Umidità ${d.rh}% · zero termico ${d.freezing_lvl} m`, `Neve al suolo ${d.snow_depth} cm`, `Media di ${d.n_models} modelli · neve tra ${d.snow_lo} e ${d.snow_hi} cm`];
+MX.decode = (s) => { const v = []; String(s || '').split(' ').forEach((t) => { if (!t) return; if (t[0] === 'z') { for (let i = 0; i < +t.slice(1); i++) v.push(0); } else v.push(+t); }); return v; };
+MX.cum = (s) => { let c = 0; return MX.decode(s).map((v) => (c += v)); };
+}
+</script>
+
+<script>
+{
+const MX = window.MX;
+
+dash.calc('daily', {
+  title: 'Meteo giornaliero della stagione',
+  description: 'Giorni osservati (file mensili) uniti alla previsione dei prossimi 15 giorni; "kind" vale prev per i giorni di previsione.',
+  inputs: ['obs_2026_11', 'obs_2026_12', 'obs_2027_01', 'obs_2027_02', 'obs_2027_03', 'obs_2027_04', 'fc'],
+  fn: (novembre, dicembre, gennaio, febbraio, marzo, aprile, previsione) => {
+    const obs = [...novembre, ...dicembre, ...gennaio, ...febbraio, ...marzo, ...aprile].map((r) => ({...r, kind: 'oss'}));
+    const fc = previsione.map((r) => ({...r, kind: 'prev'}));
+    const firstFc = fc.reduce((a, r) => (a == null || r.date < a ? r.date : a), null);
+    return [...obs.filter((r) => firstFc == null || r.date < firstFc), ...fc].sort((a, b) => (a.loc === b.loc ? (a.date < b.date ? -1 : 1) : a.loc < b.loc ? -1 : 1));
+  }
+});
+
+dash.calc('cur', {
+  title: 'Stagione in corso per stazione',
+  description: 'Per ogni stazione: neve dal 1/10 all\'ultimo giorno ERA5 disponibile, mediana delle 10 stagioni precedenti alla stessa data, posizione in classifica e neve prevista nei prossimi 7 giorni.',
+  inputs: ['past_cum', 'cur_season', 'fc'],
+  fn: (storico, stagione, previsione) => {
+    const dec = (s) => { const v = []; String(s || '').split(' ').forEach((t) => { if (!t) return; if (t[0] === 'z') { for (let i = 0; i < +t.slice(1); i++) v.push(0); } else v.push(+t); }); return v; };
+    return stagione.map((c) => {
+      const cur = dec(c.daily); const n = cur.length; const todate = cur.reduce((a, b) => a + b, 0);
+      const past = storico.filter((r) => r.loc === c.loc).map((r) => dec(r.daily).slice(0, n).reduce((a, b) => a + b, 0)).sort((a, b) => a - b);
+      const m = Math.floor(past.length / 2); const median = past.length % 2 ? past[m] : (past[m - 1] + past[m]) / 2;
+      const f = previsione.filter((r) => r.loc === c.loc).sort((a, b) => (a.date < b.date ? -1 : 1)).slice(0, 7);
+      return {loc: c.loc, asof: c.last_date, todate, median, diff_pct: median ? Math.round((todate / median - 1) * 100) : null, rank: 1 + past.filter((v) => v > todate).length, of: past.length + 1, next7: Math.round(f.reduce((a, r) => a + (+r.snow || 0), 0))};
+    });
+  }
+});
+
+dash.calc('todate', {
+  title: 'Neve alla stessa data in ogni stagione',
+  description: 'Neve cumulata dal 1° ottobre fino allo stesso giorno della stagione (l\'ultimo disponibile per la stagione in corso), per ogni stazione e stagione.',
+  inputs: ['past_cum', 'cur_season'],
+  fn: (storico, stagione) => {
+    const dec = (s) => { const v = []; String(s || '').split(' ').forEach((t) => { if (!t) return; if (t[0] === 'z') { for (let i = 0; i < +t.slice(1); i++) v.push(0); } else v.push(+t); }); return v; };
+    const out = [];
+    for (const c of stagione) {
+      const cur = dec(c.daily); const n = cur.length;
+      storico.filter((r) => r.loc === c.loc).forEach((r) => out.push({loc: c.loc, season: r.season, snow_todate: dec(r.daily).slice(0, n).reduce((a, b) => a + b, 0)}));
+      out.push({loc: c.loc, season: '2026-27', snow_todate: cur.reduce((a, b) => a + b, 0)});
+    }
+    return out;
+  }
+});
+
+dash.calc('cummed', {
+  title: 'Mediana della neve cumulata, 10 stagioni',
+  description: 'Per ogni stazione e giorno dal 1° ottobre: mediana della neve cumulata nelle stagioni 2016-17 → 2025-26.',
+  inputs: ['past_cum'],
+  fn: (storico) => {
+    const out = [];
+    for (const loc of [...new Set(storico.map((r) => r.loc))]) {
+      const cs = storico.filter((r) => r.loc === loc).map((r) => { let c = 0; const v = []; String(r.daily).split(' ').forEach((t) => { if (!t) return; if (t[0] === 'z') { for (let i = 0; i < +t.slice(1); i++) v.push(c); } else v.push(c += +t); }); return v; });
+      const n = Math.min(...cs.map((a) => a.length));
+      for (let d = 0; d < n; d++) { const v = cs.map((a) => a[d]).sort((a, b) => a - b); const m = Math.floor(v.length / 2); out.push({loc, day: d, median: v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2}); }
+    }
+    return out;
+  }
+});
+
+dash.draw('station', (sel) => {
+  const r = MX.rows('stations');
+  sel.replaceChildren(...[...(r || [])].sort((a, b) => `${a.resort} ${a.name}`.localeCompare(`${b.resort} ${b.name}`, 'it')).map((s) => new Option(`${s.resort} – ${s.name} (${s.elevation} m)`, s.loc)));
+  sel.value = MX.st();
+  sel.onchange = () => dash.setParams({st: sel.value});
+});
+dash.onData(() => { document.querySelectorAll('#mx-range').forEach((s) => { s.value = MX.range(); }); });
+document.querySelectorAll('#mx-range').forEach((s) => s.addEventListener('change', () => dash.setParams({range: s.value})));
+
+dash.draw('updated', (el) => { const t = MX.today(); if (!t) return MX.dash(el); el.textContent = MX.flong(MX.date(t)); });
+dash.draw('asof', (el) => { const c = MX.rows('cur'); const r = c && c.find((x) => x.loc === MX.st()); if (!r) return MX.dash(el); el.replaceChildren(MX.span(MX.flong(MX.date(r.asof)).trim(), 'cur', 'asof', `loc=${r.loc}`)); });
+dash.draw('stmeta', (el) => { const s = MX.station(); if (!s) return MX.dash(el); el.replaceChildren(MX.span(`Dati alla quota di ${s.elevation} m · ${s.lat}° N ${s.lon}° E`, 'stations', 'elevation', `loc=${s.loc}`)); });
+
+dash.draw('lede', (el) => {
+  const c = MX.rows('cur'), s = MX.station();
+  if (!c || !s) return MX.dash(el);
+  const r = c.find((x) => x.loc === s.loc); if (!r) return MX.dash(el);
+  const w = `loc=${s.loc}`; const dp = r.diff_pct;
+  const parts = [`A ${s.resort} (${s.name}) dal 1° ottobre al ${MX.flong(MX.date(r.asof)).trim()} sono caduti `, MX.span(`${r.todate} cm`, 'cur', 'todate', w), ' di neve'];
+  if (dp != null) parts.push(', ', MX.span(`${dp > 0 ? '+' : ''}${dp}%`, 'cur', 'diff_pct', w, dp >= 0 ? 'mx-good' : 'mx-bad'), dp >= 0 ? ' rispetto alla mediana degli ultimi 10 anni' : ' rispetto alla mediana degli ultimi 10 anni');
+  parts.push('; nei prossimi 7 giorni ne sono previsti ', MX.span(`${r.next7} cm`, 'cur', 'next7', w), '.');
+  el.replaceChildren(...parts);
+});
+
+dash.draw('k_ring', (el) => {
+  const c = MX.rows('cur'); const r = c && c.find((x) => x.loc === MX.st());
+  el.replaceChildren();
+  if (!r || !r.median) return;
+  const p = Math.max(0, Math.min(2, r.todate / r.median));
+  const R = 26, L = 2 * Math.PI * R, col = p >= 1 ? '#43e3a1' : p >= 0.7 ? '#ffc65c' : '#ff6b7d';
+  const svg = d3.select(el).append('svg').attr('viewBox', '0 0 64 64').attr('role', 'img').attr('aria-label', 'Neve in stagione rispetto alla mediana');
+  svg.append('circle').attr('cx', 32).attr('cy', 32).attr('r', R).attr('fill', 'none').attr('stroke', '#22314a').attr('stroke-width', 6);
+  svg.append('circle').attr('cx', 32).attr('cy', 32).attr('r', R).attr('fill', 'none').attr('stroke', col).attr('stroke-width', 6).attr('stroke-linecap', 'round').attr('stroke-dasharray', `${L * Math.min(1, p)} ${L}`).attr('transform', 'rotate(-90 32 32)').style('filter', `drop-shadow(0 0 4px ${col})`);
+  svg.append('text').attr('x', 32).attr('y', 36).attr('text-anchor', 'middle').attr('fill', '#e9f0fa').attr('font-size', 12).text(`${Math.round(p * 100)}%`);
+});
+dash.draw('k_snow', (el) => { const c = MX.rows('cur'); const r = c && c.find((x) => x.loc === MX.st()); if (!r) return MX.dash(el); el.replaceChildren(MX.span(`${r.todate} cm`, 'cur', 'todate', `loc=${r.loc}`)); });
+dash.draw('k_snow_s', (el) => {
+  const c = MX.rows('cur'); const r = c && c.find((x) => x.loc === MX.st()); if (!r) return MX.dash(el);
+  const w = `loc=${r.loc}`;
+  el.replaceChildren(MX.span(`${r.diff_pct > 0 ? '+' : ''}${r.diff_pct}%`, 'cur', 'diff_pct', w, r.diff_pct >= 0 ? 'mx-good' : 'mx-bad'), ' vs mediana ', MX.span(`${r.median} cm`, 'cur', 'median', w), ' · ', MX.span(`${r.rank}ª`, 'cur', 'rank', w), ' su ', MX.span(String(r.of), 'cur', 'of', w), ' stagioni · al ', MX.flong(MX.date(r.asof)).trim());
+});
+dash.draw('k_fc', (el) => { const c = MX.rows('cur'); const r = c && c.find((x) => x.loc === MX.st()); if (!r) return MX.dash(el); el.replaceChildren('+', MX.span(`${r.next7} cm`, 'cur', 'next7', `loc=${r.loc}`)); });
+dash.draw('k_fc_s', (el) => {
+  const d = MX.allRows(); const t = MX.today(); if (!d || !t) return MX.dash(el);
+  const nx = d.filter((r) => r.date >= t).slice(0, 7); const top = nx.reduce((a, r) => (+r.snow > +a.snow ? r : a), nx[0]);
+  if (!top || +top.snow < 1) { el.textContent = 'Nessuna nevicata significativa in arrivo'; return; }
+  el.replaceChildren('Giorno più nevoso: ', MX.fday(top.dt), ' con ', MX.span(`${top.snow} cm`, 'daily', 'snow', `loc=${top.loc}&date=${top.date}`), ` (modelli ${top.snow_lo}–${top.snow_hi})`);
+});
+dash.draw('k_depth', (el) => { const d = MX.allRows(); const t = d && d.find((r) => r.date === MX.today()); if (!t) return MX.dash(el); el.replaceChildren(MX.span(`${t.snow_depth} cm`, 'daily', 'snow_depth', `loc=${t.loc}&date=${t.date}`)); });
+dash.draw('k_depth_s', (el) => {
+  const d = MX.allRows(); const t = MX.today(); if (!d || !t) return MX.dash(el);
+  const e = d.find((r) => r.date === MX.addD(t, 6)); if (!e) return MX.dash(el);
+  el.replaceChildren(`Manto previsto ${MX.fday(e.dt)}: `, MX.span(`${e.snow_depth} cm`, 'daily', 'snow_depth', `loc=${e.loc}&date=${e.date}`));
+});
+dash.draw('k_temp', (el) => {
+  const d = MX.allRows(); const t = d && d.find((r) => r.date === MX.today()); if (!t) return MX.dash(el);
+  const w = `loc=${t.loc}&date=${t.date}`;
+  el.replaceChildren(MX.span(`${t.tmax}°`, 'daily', 'tmax', w), ' / ', MX.span(`${t.feel_min}°`, 'daily', 'feel_min', w));
+});
+dash.draw('k_temp_s', (el) => {
+  const d = MX.allRows(); const t = d && d.find((r) => r.date === MX.today()); if (!t) return MX.dash(el);
+  const w = `loc=${t.loc}&date=${t.date}`;
+  el.replaceChildren('Max reale e min percepita · min reale ', MX.span(`${t.tmin}°`, 'daily', 'tmin', w), ', raffiche ', MX.span(`${t.gust} km/h`, 'daily', 'gust', w));
+});
+const DG = {1: ['debole', '#ccff66'], 2: ['moderato', '#ffff00'], 3: ['marcato', '#ff9900'], 4: ['forte', '#ff3b3b'], 5: ['molto forte', '#c40000']};
+MX.aval = () => { const r = MX.rows('avalanche'); return r ? r.find((x) => x.loc === MX.st()) : null; };
+dash.draw('avaldg', (el) => {
+  const a = MX.aval(); if (!a) return MX.dash(el);
+  el.replaceChildren();
+  const add = (lab, v, f) => { const d = document.createElement('div'); const b = document.createElement('b'); b.textContent = DG[v] ? v : '–'; b.style.background = DG[v] ? DG[v][1] : '#22314a'; b.dataset.source = 'avalanche'; b.dataset.field = f; b.dataset.where = `loc=${a.loc}`; const t = document.createElement('span'); t.textContent = DG[v] ? `${lab}: ${DG[v][0]}` : `${lab}: non emesso`; d.append(b, t); el.append(d); };
+  if (a.split) { add(`Sopra ${a.split}`, a.danger_high, 'danger_high'); add(`Sotto ${a.split}`, a.danger_low, 'danger_low'); }
+  else add('Grado di pericolo', a.danger_high, 'danger_high');
+});
+dash.draw('avaltext', (el) => {
+  const a = MX.aval(); const s = MX.station(); if (!a || !s) return MX.dash(el);
+  el.replaceChildren(MX.span(`${s.aval_region}. `, 'stations', 'aval_region', `loc=${s.loc}`), a.problem ? MX.span(`Problema: ${a.problem}. `, 'avalanche', 'problem', `loc=${a.loc}`) : '', MX.span(a.note, 'avalanche', 'note', `loc=${a.loc}`), a.tendency ? MX.span(` Tendenza: ${a.tendency.toLowerCase()}.`, 'avalanche', 'tendency', `loc=${a.loc}`) : '');
+});
+dash.draw('avalsrc', (el) => {
+  const a = MX.aval(); if (!a) return MX.dash(el);
+  el.replaceChildren(MX.span(`Stato: ${a.status} · valido per il ${a.valid_for}`, 'avalanche', 'status', `loc=${a.loc}`), ' · ');
+  if (/^https:\/\//.test(a.source)) { const l = document.createElement('a'); l.href = a.source; l.target = '_blank'; l.rel = 'noopener'; l.textContent = 'Apri il bollettino ufficiale'; el.append(l); }
+});
+}
+</script>
+
+<script src="charts.js"></script>
+
+<script>
+{
+/* vista webcam: si apre con #webcam, si chiude tornando alla dashboard */
+document.querySelectorAll('.mx').forEach((root) => {
+  const wv = root.querySelector('#webcam'); if (!wv) return;
+  const route = () => { const on = location.hash === '#webcam'; root.classList.toggle('mx-onwc', on); wv.hidden = !on; };
+  root.querySelectorAll('.mx-wcbtn').forEach((b) => b.addEventListener('click', (e) => { e.preventDefault(); location.hash = 'webcam'; route(); try { root.scrollIntoView({block: 'start'}); } catch (x) {} }));
+  root.querySelectorAll('.mx-backbtn, .mx-home').forEach((b) => b.addEventListener('click', (e) => { e.preventDefault(); try { history.replaceState(null, '', location.pathname + location.search); } catch (x) { location.hash = ''; } route(); try { root.scrollIntoView({block: 'start'}); window.scrollTo(0, 0); } catch (x) {} }));
+  window.addEventListener('hashchange', route);
+  route();
+});
+}
+</script>
+
+<script>
+{
+/* selettore della barra in tabella: temperatura, precipitazioni, vento */
+document.querySelectorAll('.mx-seg').forEach((seg) => {
+  const tbl = seg.closest('.mx-panel').querySelector('table.mx-fc'); const bs = [...seg.querySelectorAll('.mx-segb')]; const ind = seg.querySelector('.mx-seg-ind');
+  if (!tbl || !bs.length) return;
+  let cur = 0;
+  const paint = () => {
+    bs.forEach((b, k) => { b.classList.toggle('on', k === cur); b.setAttribute('aria-selected', k === cur ? 'true' : 'false'); });
+    const b = bs[cur]; if (ind) { ind.style.width = b.offsetWidth + 'px'; ind.style.transform = `translateX(${b.offsetLeft}px)`; }
+    ['t', 'p', 'w'].forEach((v) => tbl.classList.toggle('view-' + v, v === b.dataset.v));
+  };
+  bs.forEach((b, i) => b.addEventListener('click', () => { cur = i; paint(); }));
+  new ResizeObserver(paint).observe(seg);
+  paint();
+});
+}
+</script>
+
+<script>
+{
+/* barra a schede: un clic o lo swipe fanno scorrere le sezioni */
+document.querySelectorAll('.mx').forEach((root) => {
+  const sl = root.querySelector('#mx-slider'); const nav = root.querySelector('.mx-tabs');
+  if (!sl || !nav) return;
+  const tabs = [...nav.querySelectorAll('.mx-tab')]; const ind = nav.querySelector('.mx-ind'); const slides = [...sl.querySelectorAll(':scope > .mx-slide')];
+  let cur = 0;
+  const paint = () => {
+    tabs.forEach((t, k) => { t.classList.toggle('on', k === cur); t.setAttribute('aria-selected', k === cur ? 'true' : 'false'); t.setAttribute('tabindex', k === cur ? '0' : '-1'); });
+    const t = tabs[cur]; if (ind && t) { ind.style.width = t.offsetWidth + 'px'; ind.style.transform = `translateX(${t.offsetLeft}px)`; }
+    const s = slides[cur]; if (s) sl.style.height = s.offsetHeight + 'px';
+  };
+  const go = (i, smooth) => {
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    sl.scrollTo({left: cur * sl.clientWidth, behavior: smooth ? 'smooth' : 'auto'});
+    const t = tabs[cur]; if (t) nav.scrollTo({left: t.offsetLeft - nav.clientWidth / 2 + t.offsetWidth / 2, behavior: 'smooth'});
+    paint();
+    const top = sl.getBoundingClientRect().top; if (smooth && (top > window.innerHeight * 0.75 || top < 0)) sl.scrollIntoView({block: 'start', behavior: 'smooth'});
+  };
+  tabs.forEach((t, i) => t.addEventListener('click', () => go(i, true)));
+  nav.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); go(cur + (e.key === 'ArrowRight' ? 1 : -1), true); tabs[cur].focus(); } });
+  sl.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); go(cur + (e.key === 'ArrowRight' ? 1 : -1), true); } });
+  let to; sl.addEventListener('scroll', () => { clearTimeout(to); to = setTimeout(() => { const i = Math.round(sl.scrollLeft / Math.max(1, sl.clientWidth)); if (i !== cur) { cur = i; paint(); const t = tabs[cur]; if (t) nav.scrollTo({left: t.offsetLeft - nav.clientWidth / 2 + t.offsetWidth / 2, behavior: 'smooth'}); } }, 90); });
+  const ro = new ResizeObserver(() => { sl.scrollTo({left: cur * sl.clientWidth}); paint(); });
+  slides.forEach((s) => ro.observe(s)); ro.observe(sl); ro.observe(nav);
+  paint();
+});
+}
+</script>
+
+</div>
+</body>
+</html>
