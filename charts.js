@@ -308,14 +308,22 @@ dash.draw('webcams', (el) => {
     const a = document.createElement('a'); a.className = 'mx-wc'; a.href = s.webcam_url; a.rel = 'noopener';
     a.setAttribute('aria-label', `Apri la webcam live di ${s.resort} – ${s.name}`);
     const pic = document.createElement('div'); pic.className = 'mx-wc-pic';
-    if (s.webcam_img) { const im = document.createElement('img'); im.src = s.webcam_img; im.alt = `Webcam ${s.resort} – ${s.name}`; im.loading = 'lazy'; pic.append(im); }
+    const pano = window.MX_REMOTE_IMG && s.pano ? `https://panodata.panomax.com/cams/${s.pano}/recent_reduced.jpg` : '';
+    if (pano) {
+      /* panoramica Panomax a 360°: si apre al centro e si può far scorrere col dito */
+      const sc = document.createElement('div'); sc.className = 'mx-wc-scroll';
+      const im = document.createElement('img'); im.src = pano; im.alt = `Webcam ${s.resort} – ${s.name} (Panomax)`; im.loading = 'lazy'; im.decoding = 'async';
+      im.onload = () => { sc.scrollLeft = (sc.scrollWidth - sc.clientWidth) / 2; };
+      im.onerror = () => { pic.classList.remove('has-photo'); sc.remove(); pic.insertAdjacentHTML('afterbegin', scene(MX.wxKind(r.code), +r.snow_depth > 5, 'wc' + i)); };
+      sc.append(im); pic.append(sc); pic.classList.add('has-photo');
+    } else if (s.webcam_img) { const im = document.createElement('img'); im.src = s.webcam_img; im.alt = `Webcam ${s.resort} – ${s.name}`; im.loading = 'lazy'; pic.append(im); }
     else pic.innerHTML = scene(MX.wxKind(r.code), +r.snow_depth > 5, 'wc' + i);
     const ov = document.createElement('div'); ov.className = 'mx-wc-ov';
     if (r.code != null) ov.append(MX.wxIcon(r.code, 40));
     const tv = document.createElement('div'); tv.className = 'mx-wc-t';
     if (r.tmax != null) tv.append(MX.span(`${Math.round(r.tmax)}°`, 'daily', 'tmax', wh), document.createElement('br'), MX.span(MX.wx(r.code), 'daily', 'code', wh));
     ov.append(tv);
-    const live = document.createElement('span'); live.className = 'mx-wc-live'; live.textContent = s.webcam_img ? 'Foto delle 8 · live ↗' : 'Live ↗';
+    const live = document.createElement('span'); live.className = 'mx-wc-live'; live.textContent = pano ? 'Panomax · live ↗' : s.webcam_img ? 'Foto delle 8 · live ↗' : 'Live ↗';
     pic.append(ov, live);
     const bar = document.createElement('div'); bar.className = 'mx-wc-bar';
     const nm = document.createElement('b'); nm.append(MX.span(`${s.resort} - ${s.name}`, 'stations', 'name', `loc=${s.loc}`));

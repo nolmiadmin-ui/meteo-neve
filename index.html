@@ -12,6 +12,7 @@ html,body{margin:0;background:#0b111c}
 .dash-select{appearance:none;-webkit-appearance:none;font:inherit;padding:8px 38px 8px 14px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238696ae' stroke-width='1.6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;cursor:pointer}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>window.MX_REMOTE_IMG = true;</script>
 <script src="dash.js"></script>
 </head>
 <body>
@@ -135,6 +136,11 @@ html,body{margin:0;background:#0b111c}
 .mx-wc:hover{border-color:rgba(95,212,255,.45)}
 .mx-wc-pic{position:relative;aspect-ratio:20/9;background:#22314a;overflow:hidden}
 .mx-wc-pic > svg,.mx-wc-pic > img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.mx-wc-scroll{position:absolute;inset:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.mx-wc-scroll::-webkit-scrollbar{display:none}
+.mx-wc-scroll img{display:block;height:100%;width:auto;max-width:none}
+.mx-wc-pic.has-photo::after{content:"";position:absolute;inset:auto 0 0 0;height:60%;background:linear-gradient(180deg,transparent,rgba(8,12,20,.7));pointer-events:none;z-index:1}
+.mx-wc-ov,.mx-wc-live{z-index:2}
 .mx-wc-ov{position:absolute;left:12px;bottom:10px;display:flex;align-items:center;gap:8px;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.55)}
 .mx-wc-t{font-size:24px;font-weight:300;line-height:1.05}
 .mx-wc-t span:last-child{font-size:12px;font-weight:400}
